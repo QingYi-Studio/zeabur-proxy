@@ -1,24 +1,27 @@
-const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+// 引入所需的模块
+const http = require('http');
+const httpProxy = require('http-proxy');
 
-const app = express();
+// 创建代理服务器
+const proxy = httpProxy.createProxyServer({});
 
-// 动态路径重写和代理
-app.use('/proxy/:match/:url*', (req, res, next) => {
-  const { match, url } = req.params;
-  const protocol = req.url.startsWith('/httpproxy') ? 'http' : 'https';
-  const targetUrl = `${protocol}://${match}/${url}`;
+// 创建服务器来监听请求
+const server = http.createServer((req, res) => {
+  // 获取目标 URL，例如 "www.myproxy.com/youtube.com" 中的 "youtube.com"
+  const targetUrl = req.url.split('/')[1]; // 从 URL 中提取目标域名
 
-  createProxyMiddleware({
-    target: targetUrl,
-    changeOrigin: true,
-    pathRewrite: {
-      [`^/proxy/${match}`]: '', // 去掉路径中的/proxy/:match
-      [`^/httpproxy/${match}`]: '', // 去掉路径中的/httpproxy/:match
-    },
-  })(req, res, next);
+  // 将请求代理到目标 URL
+  const target = `http://${targetUrl}`;
+
+  // 处理代理请求
+  proxy.web(req, res, { target: target }, (e) => {
+    console.error('代理错误:', e);
+    res.statusCode = 500;
+    res.end('代理请求失败');
+  });
 });
 
-app.listen(3000, () => {
-  console.log('Proxy server is running on port 3000');
+// 监听端口 8080
+server.listen(8080, () => {
+  console.log('代理服务器运行在 http://localhost:8080');
 });
